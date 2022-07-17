@@ -1,4 +1,4 @@
-# fluxrestic v1.0
+# fluxrestic v1.1
 
 Parse [Restic](https://restic.net/) status output and feed summary to a influxdb v2 db. 
 
@@ -21,7 +21,8 @@ $ pip install influxdb-client
 **usage**
 
 ```
-usage: fluxrestic [-h] [-t TOKEN] [-o organisation] [-b BUCKET] [-s HOST] [-m MEASUREMENT] [-r REPO] [-c REPOSERVER]
+
+usage: fluxrestic [-h] [-t TOKEN] [-o organisation] [-b BUCKET] [-s HOST] [-m MEASUREMENT] [-r REPO] [-c REPOSERVER] [-i INTERVAL] [-d] [-p]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -38,6 +39,11 @@ optional arguments:
                         restic repository (optional)
   -c REPOSERVER, --resticserver REPOSERVER
                         restic server (optional)
+  -i INTERVAL, --interval INTERVAL
+                        status update interval (default: 5s)
+  -d, --debug           output debug information
+  -p, --progress        output restic backup progress
+
 
 'influx host' defaults to http://localhost:8086 if omitted
 
@@ -51,6 +57,8 @@ export RESTIC_PASSWORD="MY-SECRET-RESTIC-PASSWORD"
 export INFLUX_TOKEN="MY-SECRET-INFLUX-TOKEN"
 
 restic --json -r sftp:me@myresticserver.com:/users/me/testrepo backup /mnt/gmbh/gfb | ./fluxrestic -o mycompany -b mybucket -s https://www.myinfluxserver.com:8086 -c myresticserver.com -r testrepo -c myresticserver.com -m restic_%type
+
+THE --json PARAMETER IS MANDATORY.
 
 ```
 For hiding the influx token (--token), we make use of the fallback enviroment variable INFLUX_TOKEN here.
@@ -78,3 +86,12 @@ feel free to copy it into directory in your PATH enviroment (e.g. /usr/local/bin
 **similar tools**
 
 [restic2influx](https://github.com/hn/restic2influx) by [Hajo Noerenberg](https://github.com/hn) (for use with influxdb v1.x)
+
+**CHANGELOG**
+
+## [1.1] - 2022-07-17
+- new features: status update rate limit, progress bar, debug option
+
+## [1.0] - 2022-07-17
+- initial release
+

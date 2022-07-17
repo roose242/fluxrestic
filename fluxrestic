@@ -28,6 +28,7 @@ import os
 import sys 
 import json
 import time
+import datetime
 from argparse import ArgumentParser
 from influxdb_client import InfluxDBClient, Point, Dialect
 from influxdb_client.client.write_api import SYNCHRONOUS
@@ -40,6 +41,9 @@ parser.add_argument("-s", "--host", dest="host", help="hostname", default=os.get
 parser.add_argument("-m", "--measurement", dest="measurement", help='influx measurement, e.g. restic or restic_%%type', default="restic")
 parser.add_argument("-r", "--repository", dest="repo", help="restic repository (optional)", default=os.getenv('RESTIC_REPOSITORY'))
 parser.add_argument("-c", "--resticserver", dest="reposerver", help="restic server (optional)")
+parser.add_argument("-i", "--interval", dest="interval", help="status update interval", default=5, type=int)
+parser.add_argument("-d", "--debug", default=False, action="store_true", help="output debug information")
+parser.add_argument("-p", "--progress", default=False, action="store_true", help="output restic backup progress")
 args = parser.parse_args()
 
 if args.token is None:
@@ -54,13 +58,34 @@ if args.bucket is None:
 if args.host is None:
     args.host="http://localhost:8086"
 
+def progress(count, total, suffix=''):
+    bar_len = 60
+    filled_len = int(round(bar_len * count / float(total)))
+    percents = round(100.0 * count / float(total), 1)
+    bar = '#' * filled_len + ' ' * (bar_len - filled_len)
+    sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percents, '%', suffix))
+    sys.stdout.flush()
+
 client = InfluxDBClient(url=args.host, token=args.token, org=args.org) # , verify_ssl=False
 write_api = client.write_api(write_options=SYNCHRONOUS)
 
+lastreq = 0
+files_done = 0
+
 for line in sys.stdin:
     data = json.loads(line)
+    
+    if type(data) is not dict:
+        print(line)
+        continue
+    
+    if data['message_type'] in ["verbose_status"]:
+        # no support yet
+        continue
+    
     measurement = args.measurement.replace('%type', data['message_type'])
-    tags = { } 
+    
+    tags = { }
     if args.repo is not None:
         tags['restic_repository'] = args.repo
     if args.reposerver is not None:
@@ -70,4 +95,53 @@ for line in sys.stdin:
         tags['snapshot_id'] = data['snapshot_id']
     if 'percent_done' in data:
         data['percent_done'] = float(data['percent_done'] * 100)
-    res = write_api.write(bucket=args.bucket, record=[{"measurement":measurement, "tags":tags, "fields":data}], time_precision='ms')
+    record = {"measurement":measurement, "tags":tags, "fields":data}
+    
+    now = time.time()
+    
+    if data['message_type'] == "status":
+        if args.progress:
+            if 'percent_done' in data:
+                percent_done = data['percent_done']
+            else:
+                percent_done = 0
+            suffix = str(percent_done) + '%, '
+            if 'files_done' in data:
+                files_done = data['files_done']
+            else:
+                files_done = 0
+            if 'bytes_done' in data:
+                bytes_done = data['bytes_done']
+            else:
+                bytes_done = 0
+            suffix = suffix + ', ' + str(files_done) + '/' + str(data['total_files'])
+            if 'total_bytes' in data:
+                suffix = suffix + ', ' + str(bytes_done) + '/' + str(data['total_bytes'])
+            if "seconds_elapsed" in data:
+                suffix = ', elapsed: ' + str(datetime.timedelta(seconds=data['seconds_elapsed']))
+            if "seconds_remaining" in data:
+                 suffix = suffix + ', remaining: ' + str(datetime.timedelta(seconds=data['seconds_remaining']))
+
+            # not yet supported:
+            #{'message_type': 'verbose_status', 'action': 'unchanged', 'item': '/mnt/foo/readme.txt', 'duration': 0, 'data_size': 0, 'metadata_size': 0, 'total_files': 0}
+            #{'message_type': 'status', 'action': 'scan_finished', 'item': '', 'duration': 1.252341785, 'data_size': 52010305307, 'metadata_size': 0, 'total_files': 19965}
+            
+            progress(percent_done, 100, suffix=suffix)
+        
+        if (now - lastreq) > args.interval:
+            lastreq = now
+        else:
+            if args.debug:
+                print('skip ' + str(record))
+            continue
+    
+    if data['message_type'] == "summary":
+        if args.progress:
+            data_copy = data.copy()
+            del data_copy['snapshot_id']
+            del data_copy['message_type']
+            print('snapshot saved with id: ' + data['snapshot_id'] + ', ' + ', '.join([f'{key}: {value}' for key, value in data_copy.items()]))
+    
+    res = write_api.write(bucket=args.bucket, record=[record], time_precision='ms')
+    if args.debug:
+        print('write ' + str(record))
