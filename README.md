@@ -1,4 +1,4 @@
-# fluxrestic
+# fluxrestic v1.0
 
 Parse [Restic](https://restic.net/) status output and feed summary to a influxdb v2 db. 
 
