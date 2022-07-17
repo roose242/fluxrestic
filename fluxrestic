@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+
+# Copyright (c) 2022 Steffen Reinecke
+#
+# This software is distributed under the MIT License
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all 
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+# SOFTWARE.
+
+import os
+import sys 
+import json
+import time
+from argparse import ArgumentParser
+from influxdb_client import InfluxDBClient, Point, Dialect
+from influxdb_client.client.write_api import SYNCHRONOUS
+
+parser = ArgumentParser()
+parser.add_argument("-t", "--token", dest="token", help="influx auth token", default=os.getenv('INFLUX_TOKEN'))
+parser.add_argument("-o", "--org", dest="org", help="influx organisation", metavar="organisation", default=os.getenv('INFLUX_ORG'))
+parser.add_argument("-b", "--bucket", dest="bucket", help="target bucket", default=os.getenv('INFLUX_BUCKET'))
+parser.add_argument("-s", "--host", dest="host", help="hostname", default=os.getenv('INFLUX_HOST'))
+parser.add_argument("-m", "--measurement", dest="measurement", help='influx measurement, e.g. restic or restic_%%type', default="restic")
+parser.add_argument("-r", "--repository", dest="repo", help="restic repository (optional)", default=os.getenv('RESTIC_REPOSITORY'))
+parser.add_argument("-c", "--resticserver", dest="reposerver", help="restic server (optional)")
+args = parser.parse_args()
+
+if args.token is None:
+    print("token parameter is missing")
+    sys.exit(1)
+if args.org is None:
+    print("org parameter is missing")
+    sys.exit(1)
+if args.bucket is None:
+    print("bucket is missing")
+    sys.exit(1)
+if args.host is None:
+    args.host="http://localhost:8086"
+
+client = InfluxDBClient(url=args.host, token=args.token, org=args.org) # , verify_ssl=False
+write_api = client.write_api(write_options=SYNCHRONOUS)
+
+for line in sys.stdin:
+    data = json.loads(line)
+    measurement = args.measurement.replace('%type', data['message_type'])
+    tags = { } 
+    if args.repo is not None:
+        tags['restic_repository'] = args.repo
+    if args.reposerver is not None:
+        tags['restic_server'] = args.reposerver
+    tags = {"type":data['message_type']}
+    if 'snapshot_id' in data:
+        tags['snapshot_id'] = data['snapshot_id']
+    if 'percent_done' in data:
+        data['percent_done'] = float(data['percent_done'] * 100)
+    res = write_api.write(bucket=args.bucket, record=[{"measurement":measurement, "tags":tags, "fields":data}], time_precision='ms')
