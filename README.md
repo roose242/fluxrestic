@@ -6,13 +6,13 @@ Tested with influxdb 2.3 and restic 0.1.3
 
 **requirements**
 
-requires python 3 and influxdb-python library
+requires python 3 and influxdb-client library
 
 restic >= 0.13.1
 
 influxdb >= 2.3 
 
-Install, upgrade and uninstall influxdb-python with these commands:
+Install influxdb-client with this command:
 
 ```
 $ pip install influxdb-client
