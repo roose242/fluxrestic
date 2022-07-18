@@ -56,9 +56,9 @@ full example
 export RESTIC_PASSWORD="MY-SECRET-RESTIC-PASSWORD"
 export INFLUX_TOKEN="MY-SECRET-INFLUX-TOKEN"
 
-restic --json -r sftp:me@myresticserver.com:/users/me/testrepo backup /mnt/mydata | ./fluxrestic -o mycompany -b mybucket -s https://www.myinfluxserver.com:8086 -r testrepo -c myresticserver.com -m restic_%type
+restic --json -r sftp:me@myresticserver.com:/users/me/testrepo backup /mnt/mydata 2>&1 | ./fluxrestic -o mycompany -b mybucket -s https://www.myinfluxserver.com:8086 -r testrepo -c myresticserver.com -m restic_%type
 
-THE --json PARAMETER IS MANDATORY.
+# THE --json PARAMETER IS MANDATORY.
 
 ```
 For hiding the influx token (--token), we make use of the fallback enviroment variable INFLUX_TOKEN here.
