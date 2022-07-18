@@ -87,7 +87,7 @@ feel free to copy it into directory in your PATH enviroment (e.g. /usr/local/bin
 
 **similar tools**
 
-[restic2influx](https://github.com/hn/restic2influx) by [Hajo Noerenberg](https://github.com/hn) (for use with influxdb v1.x)
+[restic2influx](https://github.com/hn/restic2influx) by [Hajo Noerenberg](https://github.com/hn) (written in perl)
 
 **CHANGELOG**
 
