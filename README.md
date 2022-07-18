@@ -56,7 +56,7 @@ full example
 export RESTIC_PASSWORD="MY-SECRET-RESTIC-PASSWORD"
 export INFLUX_TOKEN="MY-SECRET-INFLUX-TOKEN"
 
-restic --json -r sftp:me@myresticserver.com:/users/me/testrepo backup /mnt/mydata | ./fluxrestic -o mycompany -b mybucket -s https://www.myinfluxserver.com:8086 -c myresticserver.com -r testrepo -c myresticserver.com -m restic_%type
+restic --json -r sftp:me@myresticserver.com:/users/me/testrepo backup /mnt/mydata | ./fluxrestic -o mycompany -b mybucket -s https://www.myinfluxserver.com:8086 -r testrepo -c myresticserver.com -m restic_%type
 
 THE --json PARAMETER IS MANDATORY.
 
@@ -79,7 +79,7 @@ make this script executable
 e.g. using command line
 
 ```
-chmod +x fluxrestic"
+chmod +x fluxrestic
 ```
 
 feel free to copy it into directory in your PATH enviroment (e.g. /usr/local/bin, /usr/bin)
