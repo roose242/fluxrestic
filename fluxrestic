@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# fluxrestic v1.0
+# fluxrestic v1.1.1
 
 # Copyright (c) 2022 Steffen Reinecke
 #
@@ -41,7 +41,7 @@ parser.add_argument("-s", "--host", dest="host", help="hostname", default=os.get
 parser.add_argument("-m", "--measurement", dest="measurement", help='influx measurement, e.g. restic or restic_%%type', default="restic")
 parser.add_argument("-r", "--repository", dest="repo", help="restic repository (optional)", default=os.getenv('RESTIC_REPOSITORY'))
 parser.add_argument("-c", "--resticserver", dest="reposerver", help="restic server (optional)")
-parser.add_argument("-i", "--interval", dest="interval", help="status update interval", default=5, type=int)
+parser.add_argument("-i", "--interval", dest="interval", help="status update interval (default: 5s)", default=5, type=int)
 parser.add_argument("-d", "--debug", default=False, action="store_true", help="output debug information")
 parser.add_argument("-p", "--progress", default=False, action="store_true", help="output restic backup progress")
 args = parser.parse_args()
@@ -73,9 +73,15 @@ lastreq = 0
 files_done = 0
 
 for line in sys.stdin:
-    data = json.loads(line)
+    
+    try:
+        data = json.loads(line)
+    except ValueError:  # includes simplejson.decoder.JSONDecodeError
+        print('Decoding JSON has failed! Have you added the --json parameter to the restic command?')
+        print(line)
     
     if type(data) is not dict:
+        print('data type not supported:')
         print(line)
         continue
     
@@ -85,16 +91,23 @@ for line in sys.stdin:
     
     measurement = args.measurement.replace('%type', data['message_type'])
     
-    tags = { }
+    tags = {"type":data['message_type']}
     if args.repo is not None:
         tags['restic_repository'] = args.repo
     if args.reposerver is not None:
         tags['restic_server'] = args.reposerver
-    tags = {"type":data['message_type']}
     if 'snapshot_id' in data:
         tags['snapshot_id'] = data['snapshot_id']
     if 'percent_done' in data:
         data['percent_done'] = float(data['percent_done'] * 100)
+
+    # flatten data
+    for k, v in data.items():
+        if type(v) is dict: # e.g. message_type error
+            data[k] = ",".join([f'{key}: {value}' for key, value in v.items()])
+        elif type(v) is list: # e.g. current_files
+            data[k] = ",".join(v)
+
     record = {"measurement":measurement, "tags":tags, "fields":data}
     
     now = time.time()
@@ -114,7 +127,10 @@ for line in sys.stdin:
                 bytes_done = data['bytes_done']
             else:
                 bytes_done = 0
-            suffix = suffix + ', ' + str(files_done) + '/' + str(data['total_files'])
+            if 'total_files' in data:
+                suffix = suffix + ', ' + str(files_done) + '/' + str(data['total_files']) + ' files done'
+            else:
+                suffix = suffix + ', ' + str(files_done) + ' files done'
             if 'total_bytes' in data:
                 suffix = suffix + ', ' + str(bytes_done) + '/' + str(data['total_bytes'])
             if "seconds_elapsed" in data:
@@ -141,7 +157,7 @@ for line in sys.stdin:
             del data_copy['snapshot_id']
             del data_copy['message_type']
             print('snapshot saved with id: ' + data['snapshot_id'] + ', ' + ', '.join([f'{key}: {value}' for key, value in data_copy.items()]))
-    
+
     res = write_api.write(bucket=args.bucket, record=[record], time_precision='ms')
     if args.debug:
         print('write ' + str(record))

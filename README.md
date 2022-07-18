@@ -1,4 +1,4 @@
-# fluxrestic v1.1
+# fluxrestic v1.1.1
 
 Parse [Restic](https://restic.net/) status output and feed summary to a influxdb v2 db. 
 
@@ -56,7 +56,7 @@ full example
 export RESTIC_PASSWORD="MY-SECRET-RESTIC-PASSWORD"
 export INFLUX_TOKEN="MY-SECRET-INFLUX-TOKEN"
 
-restic --json -r sftp:me@myresticserver.com:/users/me/testrepo backup /mnt/gmbh/gfb | ./fluxrestic -o mycompany -b mybucket -s https://www.myinfluxserver.com:8086 -c myresticserver.com -r testrepo -c myresticserver.com -m restic_%type
+restic --json -r sftp:me@myresticserver.com:/users/me/testrepo backup /mnt/mydata | ./fluxrestic -o mycompany -b mybucket -s https://www.myinfluxserver.com:8086 -c myresticserver.com -r testrepo -c myresticserver.com -m restic_%type
 
 THE --json PARAMETER IS MANDATORY.
 
@@ -66,7 +66,9 @@ For hiding the influx token (--token), we make use of the fallback enviroment va
 There are some more fallback enviroment variables:
 
 INFLUX_ORG : influx organisation (--org)
+
 INFLUX_BUCKET : influx bucket (--bucket)
+
 RESTIC_REPOSITORY : restic repo (--repository)
 
 
@@ -88,6 +90,13 @@ feel free to copy it into directory in your PATH enviroment (e.g. /usr/local/bin
 [restic2influx](https://github.com/hn/restic2influx) by [Hajo Noerenberg](https://github.com/hn) (for use with influxdb v1.x)
 
 **CHANGELOG**
+
+## [1.1.1] - 2022-07-18
+- handling of non json input
+- handling of non-string values e.g. current_files, errors
+- handling of status message_type error (needs to redirect restic stderr to stdout)
+- fix: repo and server tags were not submitted to influx db
+- fix: handling of status messages without total_files property
 
 ## [1.1] - 2022-07-17
 - new features: status update rate limit, progress bar, debug option
